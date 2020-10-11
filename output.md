@@ -109,7 +109,7 @@ Intuitevly 60 hits makes sense since you also you would also need to roll a dice
 - Full worldbuffs
 - Conservative assumptions on gear (default gear on Steppenwolf spreadsheet)
 
-<img src="hits_per_second.png">
+<img src="hits_per_second.PNG">
 
 
 ```python
