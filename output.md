@@ -77,7 +77,7 @@ num_hits_required_95_percent
 
 The average number of hits required for three stacks is, however, much lower and can also easily be calculated.
 For that, we are first interested in the probabilty to get the third stack up on the n-th hit: <br /> <br />
-$ P = {n-1 \choose 2}p^2(1-p)^{n-1-2}p$ <br /> <br />
+<img src="https://render.githubusercontent.com/render/math?math=P={n-1 \choose 2}p^2(1-p)^{n-1-2}p"> <br /> <br />
 where p is the proc chance and  n is the number of hits.
 
 
