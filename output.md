@@ -33,7 +33,7 @@ total_hits = [i for i in range(3, 500)]
 
 
 ```python
-probabilies_three_stacks = [1 - probability_not_up(hits) for hits in total_hits]
+probabilies_three_stacks = [1 - probability_three_stacks_not_up(hits) for hits in total_hits]
 ```
 
 
@@ -86,14 +86,11 @@ def probability_third_stack_on_nth_hit(n):
     return scipy.special.binom(n-1, 2)*(proc_chance**2) * (1-proc_chance)**(n-3)*proc_chance
 ```
 
-
-```python
 Taking the expected value yields
-```
 
 
 ```python
-avg_num_hits_for_three_stacks = sum([n*foo(n) for n in range(3, 10000)])
+avg_num_hits_for_three_stacks = sum([n*probability_third_stack_on_nth_hit(n) for n in range(3, 10000)])
 avg_num_hits_for_three_stacks
 ```
 
@@ -112,7 +109,7 @@ Intuitevly 60 hits makes sense since you also you would also need to roll a dice
 - Full worldbuffs
 - Conservative assumptions on gear (default gear on Steppenwolf spreadsheet)
 
-<img src="hits_per_second.PNG">
+<img src="hits_per_second.png">
 
 
 ```python
@@ -233,6 +230,18 @@ def average_time_three_stacks(num_rs_dw, num_rs_oh):
     return avg_num_hits_for_three_stacks/(num_rs_dw * hits_per_sec_dual_wield + num_rs_oh * hits_per_sec_offhand)
 ```
 
+
+```python
+average_time_three_stacks(6, 2)
+```
+
+
+
+
+    5.3859867397006305
+
+
+
 # So how worth it is it?
 As shown in my discord post, once the armor debuff by three stacks is applied, all physical damage on Twin Emps will be increased by a stunning 8.87%! 
 In order to determine if the dps gain outweighs the individual dps loss by equipping Rivenspike, let's have a look at some sim results provided by Fish: <br />
@@ -251,39 +260,25 @@ According to this, let's assume the following dps losses while using Rivenspike:
 
 
 ```python
-# total number of melees in the raid, change to adjust for a different raid composition
-num_melees = 15
 # fight length in seconds
 fight_length = 300
-dps_factor_dw = 0.905
-dps_factor_oh = 0.966
+physical_dps_factor_dw = 0.905
+physical_dps_factor_oh = 0.966
 # multiplicator once three stacks are up
-dps_factor_debuff = 1.0887
+physical_dps_factor_debuff = 1.0887
 ```
-
-
-```python
-average_time_three_stacks(6, 2)
-```
-
-
-
-
-    5.3859867397006305
-
-
 
 
 ```python
 # constant fight length is actually not 100% correct, as the dps increase would decrease the fight length
-def net_dps(num_rs_dw, num_rs_oh, num_melees, fight_length):
+def net_dps(num_rs_dw, num_rs_oh, num_physical_dps, num_casters, fight_length):
     # num_rs_dw should always be bigger than 1, as that was the assumption
     if num_rs_dw < 1:
         return 1
     # start with calculation for time until stacks are up
-    dps_before_debuff = (num_rs_dw * dps_factor_dw + num_rs_oh * dps_factor_oh + (num_melees - num_rs_dw - num_rs_oh) * 1)/num_melees
+    dps_before_debuff = (num_rs_dw * dps_factor_dw + num_rs_oh * dps_factor_oh + (num_physical_dps - num_rs_dw - num_rs_oh + num_casters) * 1)/(num_physical_dps + num_casters)
     # dps after debuff
-    dps_after_debuff = ((1*dps_factor_dw + (num_melees-1)*1)*dps_factor_debuff)/num_melees
+    dps_after_debuff = ((1*dps_factor_dw + (num_physical_dps-1)*1)*dps_factor_debuff + num_casters * 1)/(num_physical_dps + num_casters)
     # time until debuff is up
     time_to_debuff = average_time_three_stacks(num_rs_dw, num_rs_oh)
     # now calculate the total dps as a weighted average
@@ -292,17 +287,60 @@ def net_dps(num_rs_dw, num_rs_oh, num_melees, fight_length):
 
 
 ```python
-net_dps(1, 0, 15, 300)
+def print_dps_gain_one_rivenspike(num_physical_dps, num_caster_dps, fight_length):
+
+    net_dps_overall_raid = net_dps(
+        num_rs_dw = 1, 
+        num_rs_oh = 0, 
+        num_physical_dps = num_physical_dps, 
+        num_casters = num_caster_dps,
+        fight_length = fight_length
+    )
+
+    net_dps_physical_dps = net_dps(
+        num_rs_dw = 1,
+        num_rs_oh = 0,
+        num_physical_dps = num_physical_dps,
+        num_casters = 0,
+        fight_length = fight_length
+    )
+
+    print(f'Average DPS gain overall for all melee dps: {net_dps_physical_dps-1:.2%}')
+    print(f'Average DPS gain overall for the whole raid: {net_dps_overall_raid-1 :.2%}')
 ```
 
+Lets have a look at the results for a lineup with 15 physical dps with one warrior dual wielding Rivenspike:
 
 
+```python
+# total number of melees in the raid, change to adjust for a different raid composition
+num_physical_dps = 15
+num_healers = 12
+raid_size = 40
+num_caster_dps = raid_size -  num_physical_dps - num_healers
+print_dps_gain_one_rivenspike(num_physical_dps, num_caster_dps, fight_length)
+```
 
-    1.0714379524140822
+    Average DPS gain overall for all melee dps: 7.14%
+    Average DPS gain overall for the whole raid: 3.83%
+    
+
+Now lets have a look at the results for a lineup of only 10 physical dps with one warrior dual wielding Rivenspike:
 
 
+```python
+num_physical_dps = 10
+num_healers = 12
+raid_size = 40
+num_caster_dps = raid_size -  num_physical_dps - num_healers
+print_dps_gain_one_rivenspike(num_physical_dps, num_caster_dps, fight_length)
+```
 
-So even only one warrior using double Rivenspike is already quite a substantial DPS gain of 7.14% for the whole raid. 
+    Average DPS gain overall for all melee dps: 6.80%
+    Average DPS gain overall for the whole raid: 2.43%
+    
+
+Below you can find also find the implementation of a grid search to evaluate the optimal number of Rivenspike users:
 
 
 ```python
@@ -314,7 +352,7 @@ def net_dps_grid(num_melees, fight_length):
             params.append({
                 'num_rs_dw': i,
                 'num_rs_oh': u,
-                'net_dps': net_dps(i, u, num_melees, fight_length)
+                'net_dps': net_dps(i, u, num_melees, 0, fight_length)
             })
     return pd.DataFrame(params)
 ```
@@ -376,4 +414,6 @@ best_setting
 This final result about the best setting indicates that the more warriors use Rivenspike in the beginning to get the stacks up, the better. The additional dps gain is, however, very minor (only about 0.9% dps).
 
 ## Conclusion
-We saw, that one dual wielding Warrior using Rivenspike is already enough to increase the Raid DPS by over 7%! That's why I think it's definitely worth using from a theoretical perspective.
+We saw, that one dual wielding Warrior using Rivenspike is already enough to increase the Raid DPS of all physical dps classes by over 7% (assuming 15 physical dps)! For the overall raid that would still be a dps gain of 3.8%! 
+For a very caster heavy lineup with only 10 physical dps, the calculation still yields a dps gain of 6.8% for all physical dps, which translates into a dps gain of 2.4% for the overall raid.
+That's why I think it's definitely worth using from a theoretical perspective.
